@@ -975,7 +975,7 @@ contract EstateFactory is Token721 {
     
     //등록된 부동산에 대한 보증 상태
     //enum Assurence { yes, no }
-    enum STATE { INIT, TRADABLE, PENDING, COMPLETED } // 상태: 초기, 거래가능, 보류(거래중), 완료
+    enum STATE { TRADABLE, PENDING, COMPLETED } // 상태: 거래가능, 보류(거래중), 완료
     
     string baseURI;
 
@@ -985,25 +985,33 @@ contract EstateFactory is Token721 {
         string  estateOwner;   //부동산 소유주 이름
         string  estateName;     //부동산 명
         string  estateAddr;     //부동산 주소
-        string    estateSize;     //부동산 크기
+        string  estateSize;     //부동산 크기
         bool    assurance;      //보증   
-        STATE status; // 부동산 상태
+        STATE   status; // 부동산 상태
     }
 
     
-    Estate[] public estates;   //부동산 구조체를 담는 배열 //나중에 보안을 위해 internal로
-    mapping(uint => address) estatesOwner;  //부동산 등록을 신청한 사용자를 순차적으로 저장, 토큰번호에 해당 사용자 주소저장
+    Estate public estates;   //부동산 구조체를 담는 배열 //나중에 보안을 위해 internal로
+    address estatesOwner; //부동산 등록을 신청한 사용자를 순차적으로 저장, 토큰번호에 해당 사용자 주소저장
     mapping(uint => bool) estatesApproval;  //신청한 부동산을 토큰으로 발행했는지 여부
     mapping(address => uint) ownerApplyEstatesCount; // 부동산 신청 개수 저장
     //bool[] estateApproval
+
+    function setEstateStatus(STATE _status) public {
+        estates.status = _status;
+    }
 
 
     event NewApplyEstate(uint _id, string _estateOwner, string _estateName, string _estateAddr);
 
     //부동산 등록 신청
-    function applyEstate(string memory _ownerName, string memory _estateName, string memory _addr, string memory _size) public {
-        uint id = estates.push(Estate(0,_ownerName, _estateName, _addr, _size, false))-1;
-        estates[id].estateId = id;
+    function applyEstate(string memory _id, string memory _ownerName, string memory _estateName, string memory _addr, string memory _size) public {
+        uint id = estates.push(Estate(0,_ownerName, _estateName, _addr, _size, false, 0))-1;
+        estates.estatedId = _id;
+        estates.estateOwner = _ownerName;
+        estates.estateName = _estateName;
+        estates.estateAddr = _addr;
+        estaets.estateSize = _size;
         estatesOwner[id] = msg.sender;
         estatesApproval[id] = false;
         ownerApplyEstatesCount[msg.sender]++;
