@@ -35,7 +35,7 @@ contract TradingFactory {
     }
 
     //생성된 EstateTrading 컨트랙트 리턴
-    function getEstateTradings() public view returns (EstateTrading[] memory){
+    function getEstateTradings() public view returns (EstateTrading){
         return estateTrading;
     }
 }
@@ -54,20 +54,12 @@ contract EstateTrading {
     struct TradeLedger {
         string description; //설명
         uint estateId;  //토큰id        
-        
         uint contractDate; //계약일자
         uint dueDate; //잔금일자(기한)
-        
         uint[] agreementDate; //약정일자(배열로 선언. 중도금/기한 등에 대한 여러날짜 push가능)...contract: 법적 구속력, agreement: 법적 구속력 없음
-        
-        //uint[] agreementAmount;
-        //uint[] transferAmount;
-        mapping(uint=>uint) agreementAmount; // (중도금/기한 등 약정일자 => 약정금액), 이체 약정/합의한 금액
-        mapping(uint=>uint) transferAmount; // (중도금/기한 등 이체일자 => 이체금액), 실제 이체한 금액
-        
+        uint[] agreementAmount; // (중도금/기한 등 약정일자 => 약정금액), 이체 약정/합의한 금액
         uint tradePrice; //매매대금
         uint accTransferAmount; //누적이체금액
-        
         STATE tradingStatus; //거래상태
     }
 
@@ -77,6 +69,9 @@ contract EstateTrading {
     address public manager;  //TradingFactory 컨트랙트 manager (코스콤) 
     address public seller;   //EstateTrading 컨트랙트 Seller (매도인)
     address public buyer;    //매수인
+
+    mapping(uint=>uint) private agreementAmountMapper; // (중도금/기한 등 약정일자 => 약정금액), 이체 약정/합의한 금액 mapper
+    mapping(uint=>uint) private transferAmountMapper; // (중도금/기한 등 이체일자 => 이체금액), 실제 이체한 금액 mapper
 
     //EstateTrading 생성자
     constructor(address _manager, address _seller, EstateFactory _estateFactory, GPAToken _gpaToken) public {
@@ -91,31 +86,36 @@ contract EstateTrading {
                                uint _estateId, 
                                uint _contractDate, 
                                uint _dueDate,
-                               uint[] _agreementDate, 
-                               mapping(uint=>uint) _agreementAmount, 
-                               mapping(uint=>uint) _transferAmount,
+                               uint[] memory _agreementDate, 
+                               uint[] memory _agreementAmount,
+                               uint[] memory _transferAmount,                               
+                            //    mapping(uint=>uint) memory _agreementAmount, // mapping can only have a data location of "storage"
+                            //    mapping(uint=>uint) memory _transferAmount,
                                address _manager,
                                address _buyer,
                                uint _tradePrice,
                                uint _accTransferAmount,
                                STATE _tradingStatus) public {
         //_esteteId의 owner여부 확인
-        require(estateFactory.ownerOf(_estateId) == Seller,"not seller's estateId");
-        require(manager == _manager,"only Manager accessible!");
+        require(estateFactory.ownerOf(_estateId) == seller,"not seller's estateId");
+        require(manager == _manager,"only Manager accessible!");        
+        require(_agreementDate.length == _agreementAmount.length,"invalid size of agreement amount");
+        require(_agreementDate.length == _transferAmount.length,"invalid size of transfer amount");
+
+        tradeLedger.description = _description;
+        tradeLedger.estateId = _estateId;
+        tradeLedger.contractDate = _contractDate;
+        tradeLedger.dueDate = _dueDate;
+        tradeLedger.agreementDate = _agreementDate;
+        tradeLedger.agreementAmount = _agreementAmount;
+        tradeLedger.tradePrice = _tradePrice;
+        tradeLedger.accTransferAmount = _accTransferAmount;
+        tradeLedger.tradingStatus = _tradingStatus;
         
-        tradeLedger.push(TradeLedger({
-            description : _description,
-            estateId : _estateId,
-            contractDate : _contractDate,
-            dueDate : _dueDate,
-            agreementDate : _agreementDate,
-            agreementAmount : _agreementAmount,
-            transferAmount : _transferAmount,
-            tradePrice : _tradePrice,
-            accTransferAmount : _accTransferAmount,
-            tradingStatus : _tradingStatus
-        }));
-        
+        for(uint i=0; i < _agreementDate.length; i++) {
+            agreementAmountMapper[_agreementDate[i]] = _agreementAmount[i];
+            transferAmountMapper[_agreementDate[i]] = _transferAmount[i];
+        }
         buyer = _buyer;
     }
     
@@ -132,13 +132,13 @@ contract EstateTrading {
         TradeLedger storage _tradeLedger = tradeLedger;
 
         // 약정된 날짜에 해당하는 약정 금액 일치할 경우에만, 금액 이체.
-        if( _transferAmount == _tradeLedger.agreementAmount[_transferDate]){
+        if( _transferAmount == agreementAmountMapper[_transferDate]){
             gpaToken.transferFrom(_buyer, seller, _transferAmount); 
             
-            _tradeLedger.transferAmount[_transferDate] = _transferAmount;
+            transferAmountMapper[_transferDate] = _transferAmount;
             _tradeLedger.accTransferAmount += _transferAmount;
             
-            _tradeLedger.tradingStatus = REQUESTED;
+            _tradeLedger.tradingStatus = STATE.REQUESTED;
             
             emit requestTransferAmountEvent(_buyer, _transferAmount, _tradeLedger.tradingStatus);            
             return true;
@@ -150,14 +150,21 @@ contract EstateTrading {
     
     // 거래 원장 체크
     modifier checkTradeLedger(uint _transferDate, uint _transferAmount) {
+        _;
         TradeLedger memory _tradeLedger = tradeLedger;
         
-        require(_tradeLedger.aggrementDate == _transferDate, "not satisfied date to trade");
-        require(_tradeLedger.transferAmount[_transferDate] == _transferAmount, "not satisfied date to trade");
+        bool isTradable = false;
+        for(uint i=0; i < _tradeLedger.agreementDate.length; i++) {
+            if(_tradeLedger.agreementDate[i] == _transferDate)
+                isTradable = true;
+        }
+        require(isTradable == true, "not satisfied date to trade");
+        require(transferAmountMapper[_transferDate] == _transferAmount, "not satisfied date to trade");
     }
 
     // 잔고 체크
     modifier checkBalance(address _participant, uint _transferAmount) {
+        _;
         require(gpaToken.balanceOf(_participant) >= _transferAmount);
     }
     
@@ -167,16 +174,16 @@ contract EstateTrading {
         require(_seller == seller, "invalid Seller to participate in trade.");
         
         TradeLedger storage _tradeLedger = tradeLedger;
-        require(_tradeLedger.tradingStatus == REQUESTED, "check the state of trading phases");
+        require(_tradeLedger.tradingStatus == STATE.REQUESTED, "check the state of trading phases");
         
         // 약정 당일까지 누적 이체된 금액이 약정 총 금액과 일치하는지 체크
-        uint _totAgreementAmount;
-        for(uint i=0; i< _tradeLedger.agreementDate.length; i++) {
-            _totAgreementAmount += _tradeLedger.agreementAmount[_tradeLedger.agreementDate[i]]
+        uint _totAgreementAmount = 0;
+        for(uint i=0; i < _tradeLedger.agreementDate.length; i++) {
+            _totAgreementAmount += agreementAmountMapper[_tradeLedger.agreementDate[i]];
         }
         
         if(_tradeLedger.accTransferAmount >= _totAgreementAmount) {
-            _tradeLedger.tradingStatus = ACCEPTED;
+            _tradeLedger.tradingStatus = STATE.ACCEPTED;
             
             emit acceptTransferAmountEvent(_seller, _tradeLedger.tradingStatus);
             return true;
@@ -201,7 +208,7 @@ contract EstateTrading {
   
         estateFactory.transferFrom(_seller, _buyer, _tokenId);
         
-        _tradeLedger.tradingStatus = COMPLETED;
+        _tradeLedger.tradingStatus = STATE.COMPLETED;
         
         emit transferEstateEvent(_seller, _buyer, _tokenId, uint32(now));
         return true;
@@ -212,8 +219,7 @@ contract EstateTrading {
     }
 
     function discardTrading() public returns(bool) {
-        TradeLedger storage _tradeLedger = tradeLedger;
-        tradeLedger.tradingStatus = DISCARDED;
+        tradeLedger.tradingStatus = STATE.DISCARDED;
         return true;
     }
 
@@ -225,9 +231,8 @@ contract EstateTrading {
                                                   uint, 
                                                   uint, 
                                                   uint, 
-                                                  uint[],
-                                                  mapping(uint=>uint),
-                                                  mapping(uint=>uint),
+                                                  uint[] memory,
+                                                  uint[] memory,
                                                   uint, 
                                                   uint,
                                                   STATE,
@@ -239,7 +244,6 @@ contract EstateTrading {
                 tradeLedger.dueDate, 
                 tradeLedger.agreementDate, 
                 tradeLedger.agreementAmount, 
-                tradeLedger.transferAmount,
                 tradeLedger.tradePrice,
                 tradeLedger.accTransferAmount,
                 tradeLedger.tradingStatus,
@@ -247,7 +251,7 @@ contract EstateTrading {
                 buyer);
     }
 
-    function getCompleteTrading() public view returns(bool) {
+    function getCompleteTrading() public view returns(STATE) {
         return tradeLedger.tradingStatus;
     }
 
