@@ -1,3 +1,8 @@
+/****************************************************************************************************************************************************
+** This Source Code is referred to the original AutctionFactory forked from woojong92/Teamchainer_BlockChainProject 
+** It must not be used for commercial purposes.
+****************************************************************************************************************************************************/
+
 pragma solidity ^0.5.0;
 
 //import "github.com/Arachnid/solidity-stringutils/strings.sol";
@@ -170,9 +175,9 @@ contract ERC721Basic is SupportsInterfaceWithLookup {
     *   bytes4(keccak256('getApproved(uint256)')) ^
     *   bytes4(keccak256('setApprovalForAll(address,bool)')) ^
     *   bytes4(keccak256('isApprovedForAll(address,address)')) ^
-    *   bytes4(keccak256('transferFrom(address,address,uint256)')) ^
-    *   bytes4(keccak256('safeTransferFrom(address,address,uint256)')) ^
-    *   bytes4(keccak256('safeTransferFrom(address,address,uint256,bytes)'))
+    *   bytes4(keccak256('transfer(address,address,uint256)')) ^
+    *   bytes4(keccak256('safeTransfer(address,address,uint256)')) ^
+    *   bytes4(keccak256('safeTransfer(address,address,uint256,bytes)'))
     */
 
     bytes4 private constant InterfaceId_ERC721Exists = 0x4f558e79;
@@ -207,14 +212,14 @@ contract ERC721Basic is SupportsInterfaceWithLookup {
         public view returns (bool);
 
     // 본인의 혹은 접근 가능한 _tokenId 토큰을 _from 에서 _to 로 넘김
-    function transferFrom(address _from, address _to, uint256 _tokenId) public;
+    function transfer(address _from, address _to, uint256 _tokenId) public;
 
     // _to 가 콘트랙트 주소인 경우에는 ERC721Receiver 의 onERC721Received 함수가 존재하는지를 체크한 후에 토큰을 넘김.
-    function safeTransferFrom(address _from, address _to, uint256 _tokenId)
+    function safeTransfer(address _from, address _to, uint256 _tokenId)
         public;
 
     // 위와 같은 함수에 옵셔널하게 체크 가능한 _data 가 첨부됨. (function overloading)
-    function safeTransferFrom(
+    function safeTransfer(
         address _from,
         address _to,
         uint256 _tokenId,
@@ -432,13 +437,13 @@ contract ERC721BasicToken is ERC721Basic {
 
     /**
     * @dev Transfers the ownership of a given token ID to another address
-    * @dev Usage of this method is discouraged, use `safeTransferFrom` whenever possible
+    * @dev Usage of this method is discouraged, use `safeTransfer` whenever possible
     * @dev Requires the msg sender to be the owner, approved, or operator
     * @param _from current owner of the token
     * @param _to address to receive the ownership of the given token ID
     * @param _tokenId uint256 ID of the token to be transferred
     */
-    function transferFrom(
+    function transfer(
         address _from,
         address _to,
         uint256 _tokenId
@@ -469,7 +474,7 @@ contract ERC721BasicToken is ERC721Basic {
     * @param _to address to receive the ownership of the given token ID
     * @param _tokenId uint256 ID of the token to be transferred
     */
-    function safeTransferFrom(
+    function safeTransfer(
         address _from,
         address _to,
         uint256 _tokenId
@@ -478,7 +483,7 @@ contract ERC721BasicToken is ERC721Basic {
         canTransfer(_tokenId) // transfer 권한이 있는지를 체크
     {
         // solium-disable-next-line arg-overflow
-        safeTransferFrom(_from, _to, _tokenId, ""); // data 파라미터가 있는 safeTransferFrom 함수로 호출
+        safeTransfer(_from, _to, _tokenId, ""); // data 파라미터가 있는 safeTransfer 함수로 호출
     }
 
     /**
@@ -493,7 +498,7 @@ contract ERC721BasicToken is ERC721Basic {
     * @param _tokenId uint256 ID of the token to be transferred
     * @param _data bytes data to send along with a safe transfer check
     */
-    function safeTransferFrom(
+    function safeTransfer(
         address _from,
         address _to,
         uint256 _tokenId,
@@ -502,7 +507,7 @@ contract ERC721BasicToken is ERC721Basic {
         public
         canTransfer(_tokenId)
     {
-        transferFrom(_from, _to, _tokenId); // 토큰 이동
+        transfer(_from, _to, _tokenId); // 토큰 이동
         // solium-disable-next-line arg-overflow
         require(checkAndCallSafeTransfer(_from, _to, _tokenId, _data)); // 단, _to 가 콘트랙트인 경우에는 ERC721 을 받을 준비(=onERC721Received 함수를 구현)가 되어 있는지를 체크
     }
@@ -578,7 +583,7 @@ contract ERC721BasicToken is ERC721Basic {
     * @param _tokenId uint256 ID of the token to be added to the tokens list of the given address
     */
     function addTokenTo(address _to, uint256 _tokenId) internal { // 내부에서만 호출 가능
-        require(tokenOwner[_tokenId] == address(0)); // 토큰의 주인이 없을 때만 (transferFrom 에서는 미리 지우고 호출됨)
+        require(tokenOwner[_tokenId] == address(0)); // 토큰의 주인이 없을 때만 (transfer 에서는 미리 지우고 호출됨)
         tokenOwner[_tokenId] = _to; // _to 를 주인으로 토큰 생성 혹은 이동
         ownedTokensCount[_to] = ownedTokensCount[_to].add(1); // _to 가 소유한 토큰 개수에 +1
     }
@@ -972,76 +977,56 @@ contract Token721 is ERC721Token, Ownable {
 
 
 contract EstateFactory is Token721 {
+    enum STATE { INIT, TRADABLE, TRADING, TRADED } // 상태: 초기상태, 거래가능, 거래중, 거래완료
     
-    //등록된 부동산에 대한 보증 상태
-    //enum Assurence { yes, no }
-    enum STATE { TRADABLE, PENDING, COMPLETED } // 상태: 거래가능, 보류(거래중), 완료
-    
-    string baseURI;
+    string baseURI; // URI 사용시
 
     //부동산에 대한 구조체
     struct Estate{
-        uint256 estateId;
-        string  estateOwner;   //부동산 소유주 이름
-        string  estateName;     //부동산 명
-        string  estateAddr;     //부동산 주소
-        string  estateSize;     //부동산 크기
-        bool    assurance;      //보증   
-        STATE   status; // 부동산 상태
+        uint    estateId;
+        string  estateOwner;    // 부동산 소유주 이름
+        string  estateName;     // 부동산 명
+        string  estateAddr;     // 부동산 주소
+        string  estateSize;     // 부동산 크기
+        bool    isMortgage;     // 담보여부   
+        STATE   estateStatus;   // 부동산 상태
+        uint    officialPrice;  // 공시지가
+        uint    salePrice;      // 매물가격
     }
 
-    
-    Estate public estates;   //부동산 구조체를 담는 배열 //나중에 보안을 위해 internal로
-    address estatesOwner; //부동산 등록을 신청한 사용자를 순차적으로 저장, 토큰번호에 해당 사용자 주소저장
+    Estate[] private estates;   // 부동산 구조체를 담는 배열.
+    mapping(uint => address) estatesOwner;  //부동산 등록을 신청한 사용자를 순차적으로 저장, 토큰번호에 해당 사용자 주소저장
     mapping(uint => bool) estatesApproval;  //신청한 부동산을 토큰으로 발행했는지 여부
     mapping(address => uint) ownerApplyEstatesCount; // 부동산 신청 개수 저장
-    //bool[] estateApproval
-
-    function setEstateStatus(STATE _status) public {
-        estates.status = _status;
-    }
-
-
-    event NewApplyEstate(uint _id, string _estateOwner, string _estateName, string _estateAddr);
 
     //부동산 등록 신청
-    function applyEstate(string memory _id, string memory _ownerName, string memory _estateName, string memory _addr, string memory _size) public {
-        uint id = estates.push(Estate(0,_ownerName, _estateName, _addr, _size, false, 0))-1;
-        estates.estatedId = _id;
-        estates.estateOwner = _ownerName;
-        estates.estateName = _estateName;
-        estates.estateAddr = _addr;
-        estaets.estateSize = _size;
-        estatesOwner[id] = msg.sender;
-        estatesApproval[id] = false;
+    event NewApplyEstate(uint _estateId, string _estateOwner, string _estateName, string _estateAddr);
+    function applyEstate(string memory _estateOwner,
+                         string memory _estateName, 
+                         string memory _estateAddr, 
+                         string memory _estateSize,
+                         bool _isMortgage,
+                         uint _officialPrice,
+                         uint _salePrice) public {
+        uint _estateId = estates.push(Estate(0,_estateOwner, _estateName, _estateAddr, _estateSize, _isMortgage, STATE.INIT, _officialPrice, _salePrice))-1;
+        estates[_estateId].estateId = _estateId;
+        estatesOwner[_estateId] = msg.sender;
+        estatesApproval[_estateId] = false;
         ownerApplyEstatesCount[msg.sender]++;
-        emit NewApplyEstate(id, _ownerName, _estateName, _addr);
+        emit NewApplyEstate(_estateId, _estateOwner, _estateName, _estateAddr);
     }
 
     //부동산 721토큰 발행 후
     //신청한 사용자에게 transfer
-    function createEstate(uint _id) public {
-        require(estatesApproval[_id] == false);
-        _mint(owner, _id);
-        //_setTokenURI(_id, baseURI.toSlice().concat(uintToString(_id).toSlice()));
-        estatesApproval[_id]=true;
-        ownerApplyEstatesCount[estatesOwner[_id]]--;
-        transferFrom(owner, estatesOwner[_id], _id);
-    }
-   
-    //사용자가 부동산  신청 후 아직 승인되지 않은 거 반환. //
-    //estatesOwner[i] -> 나중에 transfer하면 _owner를 바꿔주도록 설계해야 함.
-    function getNotApprovalEstate(address _owner) public view returns(uint[] memory){
-        uint[] memory result = new uint[](ownerApplyEstatesCount[_owner]);
-        //uint length = ownerEstatesCount[_owner];
-        uint cnt =0;
-        for(uint i=0; i< estates.length ; i++){
-            if(estatesApproval[i] == false && estatesOwner[i] == _owner){
-                result[cnt] = i;
-                cnt++;
-            }
-        }
-        return result;
+    function createEstate(uint _estateId) public {
+        require(estatesApproval[_estateId] == false);
+        _mint(owner, _estateId);
+        //_setTokenURI(_estateId, baseURI.toSlice().concat(uintToString(_estateId).toSlice()));
+        estatesApproval[_estateId]=true;
+        ownerApplyEstatesCount[estatesOwner[_estateId]]--;
+        transfer(owner, estatesOwner[_estateId], _estateId);
+
+        estates[_estateId].estateStatus = STATE.TRADABLE;
     }
 
     //사용자가 소유한 부동산 토큰 반환 함수
@@ -1067,8 +1052,65 @@ contract EstateFactory is Token721 {
         baseURI = _uri;
     }
 
-    function estateTransferFrom (address _from, address _to, uint256 _tokenId) public{
-        transferFrom(_from, _to, _tokenId);
+    function estateTransfer (address _from, address _to, uint256 _tokenId) public{
+        transfer(_from, _to, _tokenId);
         estatesOwner[_tokenId] = _to;
+    }
+    
+    event eventEstateStatus(STATE _estateStatus);
+
+    function setTradableStatus(uint _estateId) public {
+        estates[_estateId].estateStatus = STATE.TRADABLE;
+        emit eventEstateStatus(estates[_estateId].estateStatus);
+    }
+
+    function setTradingStatus(uint _estateId) public {
+        estates[_estateId].estateStatus = STATE.TRADING;
+        emit eventEstateStatus(estates[_estateId].estateStatus);
+    }
+
+    function setTradedStatus(uint _estateId) public {
+        estates[_estateId].estateStatus = STATE.TRADED;
+        emit eventEstateStatus(estates[_estateId].estateStatus);
+    }
+
+    function getEstateStatus(uint _estateId) public view returns (STATE) {
+        return estates[_estateId].estateStatus;
+    }
+
+    function getSalePrice(uint _estateId) public view returns (uint) {
+        return estates[_estateId].salePrice;
+    }
+
+    function getEstateInfo(uint _estateId) public view returns(uint, 
+                                                               string memory, 
+                                                               string memory, 
+                                                               string memory, 
+                                                               STATE,
+                                                               uint,
+                                                               uint) {
+        return (estates[_estateId].estateId,
+                estates[_estateId].estateOwner,
+                estates[_estateId].estateName,
+                estates[_estateId].estateAddr,
+                estates[_estateId].estateStatus,
+                estates[_estateId].officialPrice,
+                estates[_estateId].salePrice);
+    }
+
+    // APPROVAL 구현 예정...
+    //사용자가 부동산  신청 후 아직 승인되지 않은 거 반환. //
+    //estatesOwner[i] -> 나중에 transfer하면 _owner를 바꿔주도록 설계해야 함.
+    function getNotApprovalEstate(address _owner) public view returns(uint[] memory){
+        uint[] memory result = new uint[](ownerApplyEstatesCount[_owner]);
+        //uint length = ownerEstatesCount[_owner];
+        uint cnt =0;
+        for(uint i=0; i< estates.length ; i++){
+            if(estatesApproval[i] == false && estatesOwner[i] == _owner){
+                result[cnt] = i;
+                cnt++;
+            }
+        }
+        return result;
     }
 }
