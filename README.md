@@ -2,31 +2,54 @@
 
 ### The Test Case ###
 
-<manager: 0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2>
-seller: 0x4B20993Bc481177ec7E8f571ceCaE8A9e22C02db
-buyer: 0x5B38Da6a701c568545dCfcB03FcB875f56beddC4
+manager: 0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2  
 
-real estat info.
-{
-	"0": "estateId: 1",
-	"1": "estateOwner: 0x4B20993Bc481177ec7E8f571ceCaE8A9e22C02db",
-	"2": "estateName: test",
-	"3": "estateAddr: test",
-	"4": "estateStatus: 1",
-	"5": "officialPrice: 100",
-	"6": "salePrice: 100"
-}
+seller: 0x4B20993Bc481177ec7E8f571ceCaE8A9e22C02db  
+
+buyer: 0x5B38Da6a701c568545dCfcB03FcB875f56beddC4  
+
+
+real estat info.  
+
+{  
+
+	"0": "estateId: 1",  
+	
+	"1": "estateOwner: 0x4B20993Bc481177ec7E8f571ceCaE8A9e22C02db",  
+	
+	"2": "estateName: test",  
+	
+	"3": "estateAddr: test",  
+	
+	"4": "estateStatus: 1",  
+	
+	"5": "officialPrice: 100",  
+	
+	"6": "salePrice: 100"  
+	
+}  
+
 
 ### The Test Result ###
 
 ![01_1_GPAToken_mint_setBalance](https://user-images.githubusercontent.com/42527020/190063828-aa620fc2-c409-4e97-8b1b-6be22becbee0.png)
-![01_1_GPAToken_mint_getApproval_allowance](https://user-images.githubusercontent.com/42527020/190063800-4da131b5-ca67-4d3a-93f9-59dea0826250.png)
-1. GPA Token minted and get approval for allowance - 0x5B38Da6a701c568545dCfcB03FcB875f56beddC4, 0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2
+![01_1_GPAToken_mint_getApproval_allowance](https://user-images.githubusercontent.com/42527020/190063800-4da131b5-ca67-4d3a-93f9-59dea0826250.png)  
+
+1. GPA Token minted and get approval for allowance - 0x5B38Da6a701c568545dCfcB03FcB875f56beddC4, 0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2  
+
+  
+    
+    
 
 
 
-![02_EstateFactory_mint](https://user-images.githubusercontent.com/42527020/190063881-3f0f3d52-b3c0-42d3-9a6e-d31a5abbfaf0.png)
-2. Real-Estate Token minted - 0x4B20993Bc481177ec7E8f571ceCaE8A9e22C02db
+![02_EstateFactory_mint](https://user-images.githubusercontent.com/42527020/190063881-3f0f3d52-b3c0-42d3-9a6e-d31a5abbfaf0.png)  
+
+2. Real-Estate Token minted - 0x4B20993Bc481177ec7E8f571ceCaE8A9e22C02db  
+
+  
+    
+    
 
 
 
