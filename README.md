@@ -1,6 +1,6 @@
 # Blockchain_RealEstate
 
-### The Test Case ###
+### Test Case ###
 
 manager: 0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2  
 
@@ -30,7 +30,7 @@ real estat info.
 }  
 
 
-### The Test Result ###
+### Test Result ###
 
 ![01_1_GPAToken_mint_setBalance](https://user-images.githubusercontent.com/42527020/190063828-aa620fc2-c409-4e97-8b1b-6be22becbee0.png)
 ![01_1_GPAToken_mint_getApproval_allowance](https://user-images.githubusercontent.com/42527020/190063800-4da131b5-ca67-4d3a-93f9-59dea0826250.png)  
